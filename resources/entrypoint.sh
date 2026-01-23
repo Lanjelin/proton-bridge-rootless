@@ -16,7 +16,7 @@ echo " IMAP  listening on :${IMAP_PORT}  ->  127.0.0.1:1143 (Bridge)"
 echo " SMTP  listening on :${SMTP_PORT}  ->  127.0.0.1:1025 (Bridge)"
 echo
 
-socat "TCP-LISTEN:${IMAP_PORT},fork,reuseaddr,keepalive" "TCP4:127.0.0.1:1143" &
+socat "TCP-LISTEN:${IMAP_PORT},fork,reuseaddr,keepalive,nodelay" "TCP4:127.0.0.1:1143" &
 socat "TCP-LISTEN:${SMTP_PORT},fork,reuseaddr" "TCP4:127.0.0.1:1025" &
 
 proton-bridge --cli $@
