@@ -1,5 +1,7 @@
 # protonmail-bridge rootless
 
+[![Auto-build Proton Bridge image](https://github.com/Lanjelin/proton-bridge-rootless/actions/workflows/build-and-publish.yml/badge.svg)](https://github.com/Lanjelin/proton-bridge-rootless/actions/workflows/build-and-publish.yml)
+
 Protonmail-bridge built for Docker using [Alpine Linux](https://hub.docker.com/_/alpine) baseimage.  
 Built from [source](https://github.com/ProtonMail/proton-bridge/releases), and running rootless.
 
