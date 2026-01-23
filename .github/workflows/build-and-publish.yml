@@ -76,8 +76,8 @@ jobs:
           images: |
             ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest
             type=raw,value=${{ steps.upstream.outputs.version }}
+            type=raw,value=latest
           labels: |
             org.opencontainers.image.title=protonmail-bridge
             org.opencontainers.image.description=Proton Mail Bridge built from source for Docker (Alpine, non-root)
