@@ -28,7 +28,7 @@ Internal ports can be changed by setting ENV `IMAP_PORT` and `SMTP_PORT`. Extern
 ```yaml
 services:
   protonmail-bridge:
-    image: ghcr.io/lanjelin/protonmail-bridge:latest
+    image: ghcr.io/lanjelin/proton-bridge-rootless:latest
     container_name: protonmail-bridge
     stdin_open: true
     tty: true
@@ -49,5 +49,5 @@ docker run -d -it \
   -p 587:587 \
   -v ./protonmail-bridge:/data \
   --restart unless-stopped \
-  ghcr.io/lanjelin/protonmail-bridge:latest
+  ghcr.io/lanjelin/proton-bridge-rootless:latest
 ```
