@@ -31,13 +31,12 @@ RUN \
   adduser -s /bin/sh -D -u 99 protonmail && \
   mkdir -p /home/protonmail && chown -R protonmail: /home/protonmail
 
-USER protonmail
-
 RUN \
   sed -i 's#^root:[^:]*:#root:!*:#' /etc/shadow && \
   sed -i 's#^\(root:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:\).*#\1/sbin/nologin#' /etc/passwd && \
   rm -f /bin/su /usr/bin/su /usr/bin/sudo /sbin/sudo 2>/dev/null || true
 
+USER protonmail
 ENV HOME=/data
 ENV IMAP_PORT=143
 ENV SMTP_PORT=587
