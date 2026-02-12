@@ -1,6 +1,6 @@
 FROM alpine:3.23 AS builder
 
-ARG BRIDGE_VERSION=3.21.2
+ARG BRIDGE_VERSION=3.22.0
 ENV BRIDGE_VERSION=$BRIDGE_VERSION
 
 RUN \
@@ -9,6 +9,9 @@ RUN \
   git \
   make \
   bash \
+  pkgconf \
+  libcbor-dev \
+  libfido2-dev \
   libsecret-dev && \
   mkdir bridge && cd bridge && \
   git clone https://github.com/ProtonMail/proton-bridge.git && \
@@ -27,6 +30,8 @@ RUN \
   pass \
   gnupg \
   socat \
+  libcbor \
+  libfido2 \
   libsecret && \
   adduser -s /bin/sh -D -u 99 protonmail && \
   mkdir -p /home/protonmail && chown -R protonmail: /home/protonmail
