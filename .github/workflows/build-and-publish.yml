@@ -51,13 +51,33 @@ jobs:
           set -euo pipefail
           image="ghcr.io/${{ github.repository }}"
           version="${{ steps.upstream.outputs.version }}"
+          token="${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}"
+          url="https://ghcr.io/v2/${{ github.repository }}/manifests/$version"
 
-          if docker manifest inspect "$image:$version" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Image $image:$version already exists, skipping build."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+          if [[ -z "$token" ]]; then
+            echo "No token configured to inspect GHCR" >&2
+            exit 1
           fi
+
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $token" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+            "$url")
+
+          case "$status" in
+            200)
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              echo "Image $image:$version already exists, skipping build."
+              ;;
+            404)
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected GHCR response ($status) while checking $image:$version" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Set up QEMU
         if: steps.exists.outputs.exists == 'false'
