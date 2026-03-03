@@ -28,6 +28,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GH_TOKEN }}
 
+      - name: Normalize GHCR repository slug
+        id: ghcr-slug
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${{ github.repository }}"
+          repo_lower="${repo,,}"
+          echo "repo_lower=$repo_lower" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/$repo_lower" >> "$GITHUB_OUTPUT"
+
       - name: Get latest upstream Proton Bridge release
         id: upstream
         shell: bash
@@ -49,10 +59,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          image="ghcr.io/${{ github.repository }}"
+          image="${{ steps.ghcr-slug.outputs.image }}"
           version="${{ steps.upstream.outputs.version }}"
           token="${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}"
-          url="https://ghcr.io/v2/${{ github.repository }}/manifests/$version"
+          url="https://ghcr.io/v2/${{ steps.ghcr-slug.outputs.repo_lower }}/manifests/$version"
 
           if [[ -z "$token" ]]; then
             echo "No token configured to inspect GHCR" >&2
@@ -93,7 +103,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/${{ github.repository }}
+            ${{ steps.ghcr-slug.outputs.image }}
           tags: |
             type=raw,value=${{ steps.upstream.outputs.version }}
             type=raw,value=latest
