@@ -25,13 +25,13 @@ jobs:
         id: check
         if: ${{ !inputs.tag }}
         run: |
-          upstream_ver=$(curl --silent "https://api.github.com/repos/ProtonMail/proton-bridge/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2}" | sort -V | tail -n1)
+          upstream_ver=$(curl --silent "https://api.github.com/repos/ProtonMail/proton-bridge/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" | sort -V | tail -n1)
           if [ -z "${upstream_ver}" ]; then
             echo "**** Can't receive external release, exiting ****"
             exit 1
           fi
 
-          build_ver=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2}" | sort -V | tail -n1)
+          build_ver=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" | sort -V | tail -n1)
           if [ -z "${build_ver}" ]; then
             echo "**** Can't retrieve latest build, exiting ****"
             exit 1
@@ -52,7 +52,7 @@ jobs:
           input="${{ inputs.tag }}"
           version="${input%%-*}"
 
-          upstream_ver=$(curl --silent "https://api.github.com/repos/ProtonMail/proton-bridge/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2}" | grep -x "$version")
+          upstream_ver=$(curl --silent "https://api.github.com/repos/ProtonMail/proton-bridge/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" | grep -x "$version")
           if [ -z "$upstream_ver" ]; then
             echo "**** Version $version not found on upstream ****"
             exit 1
