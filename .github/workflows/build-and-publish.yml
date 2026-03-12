@@ -32,7 +32,7 @@ jobs:
           fi
 
           if docker manifest inspect ghcr.io/${{ github.repository }}:$upstream_ver >/dev/null 2>&1; then
-            echo "**** Version ${build_ver} already built, exiting ****"
+            echo "**** Version ${upstream_ver} already built, exiting ****"
             exit 0
           fi
 
