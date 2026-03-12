@@ -4,121 +4,122 @@ on:
   schedule:
     - cron: "23 3 * * *" # daily check
   workflow_dispatch:
-
-permissions:
-  contents: read
-  packages: write
-
-concurrency:
-  group: proton-bridge-auto-build
-  cancel-in-progress: false
+    inputs:
+      tag:
+        description: "Forces build, skips version check."
+        required: false
+        type: string
 
 jobs:
   build-if-needed:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to GHCR (pre-check)
+      - name: Check Versions
+        id: check
+        if: ${{ !inputs.tag }}
+        run: |
+          upstream_ver=$(curl --silent "https://api.github.com/repos/ProtonMail/proton-bridge/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" | sort -V | tail -n1)
+          if [ -z "${upstream_ver}" ]; then
+            echo "**** Can't receive external release, exiting ****"
+            exit 1
+          fi
+
+          build_ver=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" | sort -V | tail -n1)
+          if [ -z "${build_ver}" ]; then
+            echo "**** Can't retrieve latest build, exiting ****"
+            exit 1
+          fi
+
+          if [ "${upstream_ver}" == "${build_ver}" ]; then
+            echo "**** Version ${build_ver} already built, exiting ****"
+            exit 0
+          fi
+
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "tag=${upstream_ver}" >> "$GITHUB_OUTPUT"
+
+      - name: Force build with custom tag
+        id: force
+        if: ${{ inputs.tag }}
+        run: |
+          input="${{ inputs.tag }}"
+          version="${input%%-*}"
+
+          upstream_ver=$(curl --silent "https://api.github.com/repos/ProtonMail/proton-bridge/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" | grep -x "$version")
+          if [ -z "$upstream_ver" ]; then
+            echo "**** Version $version not found on upstream ****"
+            exit 1
+          fi
+
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "tag=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Ready data for build
+        id: ready
+        if: ${{ steps.check.outputs.build == 'true' || steps.force.outputs.build == 'true' }}
+        run: |
+          if [ "${{ steps.force.outputs.build }}" = "true" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "version=${{ steps.force.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.check.outputs.build }}" = "true" ]; then
+            echo "tag=${{ steps.check.outputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "version=${{ steps.check.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "**** Missing data ****"
+            exit 1
+          fi
+
+          repo="${{ github.repository }}"
+          repo_lower="${repo,,}"
+
+          echo "image=ghcr.io/$repo_lower" >> "$GITHUB_OUTPUT"
+          echo "build=true" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        if: ${{ steps.ready.outputs.build == 'true' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
-
-      - name: Normalize GHCR repository slug
-        id: ghcr-slug
-        shell: bash
-        run: |
-          set -euo pipefail
-          repo="${{ github.repository }}"
-          repo_lower="${repo,,}"
-          echo "repo_lower=$repo_lower" >> "$GITHUB_OUTPUT"
-          echo "image=ghcr.io/$repo_lower" >> "$GITHUB_OUTPUT"
-
-      - name: Get latest upstream Proton Bridge release
-        id: upstream
-        shell: bash
-        run: |
-          set -euo pipefail
-          api="https://api.github.com/repos/ProtonMail/proton-bridge/releases/latest"
-          tag="$(curl -fsSL "$api" | jq -r '.tag_name')"
-          ver="${tag#v}"
-
-          if [[ -z "$ver" || "$ver" == "null" ]]; then
-            echo "Failed to read upstream release" >&2
-            exit 1
-          fi
-
-          echo "version=$ver" >> "$GITHUB_OUTPUT"
-
-      - name: Check if image tag already exists in GHCR
-        id: exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          image="${{ steps.ghcr-slug.outputs.image }}"
-          version="${{ steps.upstream.outputs.version }}"
-          token="${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}"
-          url="https://ghcr.io/v2/${{ steps.ghcr-slug.outputs.repo_lower }}/manifests/$version"
-
-          if [[ -z "$token" ]]; then
-            echo "No token configured to inspect GHCR" >&2
-            exit 1
-          fi
-
-          status=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer $token" \
-            -H "Accept: application/vnd.oci.image.index.v1+json" \
-            -H "Accept: application/vnd.oci.image.manifest.v1+json" \
-            "$url")
-
-          case "$status" in
-            200)
-              echo "exists=true" >> "$GITHUB_OUTPUT"
-              echo "Image $image:$version already exists, skipping build."
-              ;;
-            404)
-              echo "exists=false" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "Unexpected GHCR response ($status) while checking $image:$version" >&2
-              exit 1
-              ;;
-          esac
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        if: steps.exists.outputs.exists == 'false'
+        if: ${{ steps.ready.outputs.build == 'true' }}
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        if: steps.exists.outputs.exists == 'false'
+        if: ${{ steps.ready.outputs.build == 'true' }}
         uses: docker/setup-buildx-action@v3
 
-      - name: Docker metadata (tags + labels)
-        if: steps.exists.outputs.exists == 'false'
+      - name: Docker metadata
+        if: ${{ steps.ready.outputs.build == 'true' }}
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ steps.ghcr-slug.outputs.image }}
+            ${{ steps.ready.outputs.image }}
           tags: |
-            type=raw,value=${{ steps.upstream.outputs.version }}
+            type=raw,value=${{ steps.ready.outputs.tag }}
             type=raw,value=latest
           labels: |
             org.opencontainers.image.title=protonmail-bridge
             org.opencontainers.image.description=Proton Mail Bridge built from source for Docker (Alpine, non-root)
             org.opencontainers.image.vendor=Lanjelin
-            org.opencontainers.image.version=${{ steps.upstream.outputs.version }}
+            org.opencontainers.image.version=${{ steps.ready.outputs.tag }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.licenses=MIT
 
       - name: Build & push image
-        if: steps.exists.outputs.exists == 'false'
+        if: ${{ steps.ready.outputs.build == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -127,6 +128,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BRIDGE_VERSION=${{ steps.upstream.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            BRIDGE_VERSION=${{ steps.ready.outputs.version }}
