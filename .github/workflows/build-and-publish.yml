@@ -25,7 +25,7 @@ jobs:
         id: check
         if: ${{ !inputs.tag }}
         run: |
-          upstream_ver=$(curl --silent "https://api.github.com/repos/ProtonMail/proton-bridge/tags" | grep '"name":' | grep -Eo "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" | sort -V | tail -n1)
+          upstream_ver=$(curl --silent "https://api.github.com/repos/ProtonMail/proton-bridge/releases/latest" | grep '"name":' | grep -Eo "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" | sort -V | tail -n1)
           if [ -z "${upstream_ver}" ]; then
             echo "**** Can't receive external release, exiting ****"
             exit 1
