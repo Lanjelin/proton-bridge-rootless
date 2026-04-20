@@ -1,4 +1,5 @@
-FROM alpine:3.23 AS builder
+# FROM alpine:3.23 AS builder
+FROM golang:1.26.2-alpine3.23 AS builder
 
 ARG BRIDGE_VERSION=3.22.0
 ENV BRIDGE_VERSION=$BRIDGE_VERSION
@@ -13,7 +14,7 @@ RUN \
   libcbor-dev \
   libfido2-dev \
   libsecret-dev && \
-  mkdir bridge && cd bridge && \
+  mkdir /bridge && cd /bridge && \
   git clone https://github.com/ProtonMail/proton-bridge.git && \
   cd proton-bridge && \
   git checkout v$BRIDGE_VERSION && \
